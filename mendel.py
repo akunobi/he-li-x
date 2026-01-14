@@ -1,216 +1,256 @@
 import os
 import sys
 import time
+import re
 
-# --- 1. MOTOR GRÁFICO (NO TOCAR) ---
+# --- 1. CONFIGURACIÓN VISUAL Y COLORES ---
 class C:
-    CYAN = '\033[36m'
-    BLUE = '\033[34m'
-    PURPLE = '\033[35m'
-    GREEN = '\033[32m'
-    RED = '\033[31m'
-    YELLOW = '\033[33m'
+    # Colores brillantes para neón
+    CYAN = '\033[96m'
+    BLUE = '\033[94m'
+    PURPLE = '\033[95m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    WHITE = '\033[97m'
     GREY = '\033[90m'
-    WHITE = '\033[37m'
-    BOLD = '\033[1m'
     RESET = '\033[0m'
+    BOLD = '\033[1m'
 
 class Box:
-    TL, TR = "╭", "╮"
-    BL, BR = "╰", "╯"
-    H, V = "─", "│"
-    T_DOWN, T_UP = "┬", "┴"
-    JOINT = "┼"
+    # Caracteres de dibujo de caja (Box Drawing)
+    # Usamos líneas dobles para contenedores principales y simples para internos
+    TL, TR = "╔", "╗"
+    BL, BR = "╚", "╝"
+    H, V = "═", "║"
+    
+    # Conectores y nodos
+    NODE_L = "╠"
+    NODE_R = "╣"
+    T_DOWN = "╦"
+    T_UP = "╩"
+    CROSS = "╬"
+    
+    # Líneas finas
+    S_H = "─"
+    S_V = "│"
+    S_TL, S_TR = "┌", "┐"
+    S_BL, S_BR = "└", "┘"
+
+# --- 2. MOTOR DE ALINEACIÓN (EL SECRETO) ---
+
+def visible_len(texto):
+    """
+    Calcula la longitud REAL del texto quitando los códigos de color invisibles.
+    Esto soluciona el problema de desalineación.
+    """
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return len(ansi_escape.sub('', texto))
+
+def centrar_seguro(texto, ancho, relleno=" "):
+    """
+    Centra el texto considerando que los colores no ocupan espacio.
+    """
+    v_len = visible_len(texto)
+    if v_len >= ancho:
+        return texto # No cabe, se devuelve tal cual (o podrías recortar)
+    
+    espacio_total = ancho - v_len
+    izq = espacio_total // 2
+    der = espacio_total - izq
+    return (relleno * izq) + texto + (relleno * der)
+
+def alinear_izq(texto, ancho):
+    v_len = visible_len(texto)
+    return texto + (" " * (ancho - v_len))
 
 def limpiar():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-# --- 2. COMPONENTES DE INTERFAZ (UI) ---
+# --- 3. CONSTRUCTOR DE INTERFAZ (UI) ---
 
-def crear_tarjeta_simple(titulo, contenido, color_borde, ancho=30):
-    """Crea una caja simple con texto centrado"""
-    b_sup = f"{color_borde}{Box.TL}{Box.H*(ancho-2)}{Box.TR}{C.RESET}"
-    texto = f"{color_borde}{Box.V}{C.WHITE}{contenido.center(ancho-2)}{C.RESET}{color_borde}{Box.V}{C.RESET}"
-    b_inf = f"{color_borde}{Box.BL}{Box.H*(ancho-2)}{Box.BR}{C.RESET}"
+def dibujar_caja(titulo, lineas_contenido, color_borde, ancho=30):
+    """
+    Genera una lista de strings que forman una caja perfecta.
+    """
+    caja = []
     
-    # Etiqueta incrustada en el borde superior
-    etiqueta = f" {titulo} "
-    b_sup = b_sup.replace(Box.H * len(etiqueta), etiqueta, 1)
+    # Borde Superior (Con título incrustado)
+    t_len = visible_len(titulo)
+    pad_h = ancho - 2 - t_len - 2 # -2 bordes -2 espacios alrededor titulo
+    if pad_h < 0: pad_h = 0
     
-    return [b_sup, texto, b_inf]
-
-def crear_panel_opciones(titulo, opciones, seleccion_actual, color, ancho=26):
-    """Crea un menú de opciones seleccionable visualmente"""
-    lineas = []
-    # Borde Superior con Titulo
-    b_s = f"{color}{Box.TL}{Box.H*2} {titulo} {Box.H*(ancho - 4 - len(titulo))}{Box.TR}{C.RESET}"
-    lineas.append(b_s)
+    # Construcción matemática del header
+    # Ej: ╔══ TITULO ════════╗
+    b_sup = f"{color_borde}{Box.TL}{Box.H*2} {C.WHITE}{titulo}{C.RESET}{color_borde} {Box.H * (pad_h)}{Box.TR}{C.RESET}"
+    caja.append(b_sup)
     
-    for i, op in enumerate(opciones):
-        idx = i + 1
-        if idx == seleccion_actual:
-            # Opción seleccionada (Resaltada)
-            txt = f"{C.WHITE}► [{idx}] {op}{C.RESET}"
-            relleno = " " * (ancho - len(op) - 9) # Calculo manual aprox de espacios
-            linea = f"{color}{Box.V}{C.BOLD}{txt}{relleno}{C.RESET}{color}{Box.V}{C.RESET}"
-        else:
-            # Opción normal
-            txt = f"{C.GREY}  [{idx}] {op}{C.RESET}"
-            relleno = " " * (ancho - len(op) - 9)
-            linea = f"{color}{Box.V}{txt}{relleno}{color}{Box.V}{C.RESET}"
-        lineas.append(linea)
-        
-    # Relleno vertical si faltan lineas para igualar altura (opcional)
-    while len(lineas) < 5:
-        lineas.append(f"{color}{Box.V}{' '*(ancho-2)}{Box.V}{C.RESET}")
+    # Contenido
+    for linea in lineas_contenido:
+        # Centramos cada línea de contenido
+        linea_centrada = centrar_seguro(linea, ancho - 4) # -4 por bordes y margen interno
+        caja.append(f"{color_borde}{Box.V} {linea_centrada} {Box.V}{C.RESET}")
+    
+    # Borde Inferior
+    caja.append(f"{color_borde}{Box.BL}{Box.H * (ancho - 2)}{Box.BR}{C.RESET}")
+    
+    return caja
 
-    lineas.append(f"{color}{Box.BL}{Box.H*(ancho-2)}{Box.BR}{C.RESET}")
-    return lineas
+def unir_bloques_horizontalmente(bloques, espaciado=2):
+    """
+    Toma varias cajas (listas de strings) y las imprime una al lado de la otra.
+    """
+    # Altura máxima
+    alto = max(len(b) for b in bloques)
+    ancho_espacio = " " * espaciado
+    
+    for i in range(alto):
+        linea_final = ""
+        for bloq in bloques:
+            if i < len(bloq):
+                linea_final += bloq[i]
+            else:
+                # Si este bloque es más corto, rellenar con vacíos del ancho del bloque
+                ancho_bloque = visible_len(bloq[0]) 
+                linea_final += " " * ancho_bloque
+            linea_final += ancho_espacio
+        print(linea_final)
 
-def dibujar_input_dashboard(fase, data):
-    """Renderiza toda la pantalla de inputs basada en el estado actual"""
+# --- 4. LÓGICA DE GENÉTICA ---
+
+def app():
     limpiar()
-    print(f"\n{C.CYAN}{C.BOLD}   🧬  SISTEMA DE CONFIGURACIÓN GENÉTICA v3.0  🧬{C.RESET}\n")
     
-    # --- PANEL SUPERIOR: ENFERMEDAD ---
-    enf_txt = data.get('enf', 'Pendiente...')
-    color_enf = C.GREEN if fase > 1 else C.YELLOW
-    caja_enf = crear_tarjeta_simple("PATOLOGÍA", enf_txt, color_enf, 54)
-    for l in caja_enf: print(f"      {l}")
+    # HEADER
+    print(f"\n{centrar_seguro(f'{C.CYAN}🧬 GENETICS SYSTEM PRO 🧬{C.RESET}', 80)}")
+    print(f"{C.GREY}{Box.S_H * 80}{C.RESET}\n")
+
+    # --- INPUT DE DATOS ---
     
-    print("") # Separador
-    
-    # --- PANELES CENTRALES: PADRES ---
-    if fase >= 2:
-        # Definir opciones
-        ops_m = ["Sana", "Portadora", "Enferma"]
-        ops_p = ["Sano", "Enfermo"]
-        
-        # Determinar selección visual
-        sel_m = data.get('m_op', 0) if fase > 2 else 0
-        sel_p = data.get('p_op', 0) if fase > 3 else 0
-        
-        # Color activo o gris
-        c_m = C.PURPLE if fase == 2 else (C.GREY if fase < 2 else C.PURPLE)
-        c_p = C.BLUE if fase == 3 else (C.GREY if fase < 3 else C.BLUE)
-        
-        # Generar cajas
-        panel_m = crear_panel_opciones("MADRE (XX)", ops_m, sel_m, c_m)
-        panel_p = crear_panel_opciones("PADRE (XY)", ops_p, sel_p, c_p)
-        
-        # Imprimir lado a lado
-        for lm, lp in zip(panel_m, panel_p):
-            print(f"      {lm}  {lp}")
-
-    print("\n")
-
-# --- 3. LÓGICA DE NODOS (RESULTADO) ---
-# (Reutilizamos la lógica visual de nodos flotantes pero comprimida)
-
-def crear_nodo_res(titulo, gen, estado, color, ancho=14):
-    b_sup = f"{color}{Box.TL}{Box.H*(ancho-2)}{Box.TR}{C.RESET}"
-    b_inf = f"{color}{Box.BL}{Box.H*(ancho-2)}{Box.BR}{C.RESET}"
-    l1 = f"{color}{Box.V}{C.WHITE}{titulo.center(ancho-2)}{C.RESET}{color}{Box.V}{C.RESET}"
-    l2 = f"{color}{Box.V}{C.CYAN}{gen.center(ancho-2)}{C.RESET}{color}{Box.V}{C.RESET}"
-    l3 = f"{color}{Box.V}{estado.center(ancho-2)}{color}{Box.V}{C.RESET}"
-    return [b_sup, l1, l2, l3, b_inf]
-
-def imprimir_arbol_final(padre, madre, hijos):
-    # Renderizado final del árbol
-    limpiar()
-    print(f"\n{C.CYAN}   🧬  RESULTADO DEL ANÁLISIS  🧬{C.RESET}\n")
-    
-    # 1. Padres (Nodos estáticos simples)
-    n_p = crear_nodo_res("PADRE", f"X{padre[0]} {padre[1]}", "---", C.BLUE)
-    n_m = crear_nodo_res("MADRE", f"X{madre[0]} X{madre[1]}", "---", C.PURPLE)
-    
-    gap = " " * 8
-    pad = " " * 12
-    for l_p, l_m in zip(n_p, n_m):
-        print(f"{pad}{l_p}{gap}{l_m}")
-
-    # 2. Conectores (Hardcoded para estética)
-    print(f"{pad}      {C.BLUE}└──────{C.GREY}┬{C.PURPLE}──────┘{C.RESET}")
-    print(f"{pad}           {C.GREY}│{C.RESET}")
-    print(f"{pad}   {C.GREY}┌───────┼───────┬───────┐{C.RESET}")
-
-    # 3. Hijos
-    filas = [[],[],[],[],[]]
-    for h in hijos:
-        # Analisis rápido
-        a1, a2 = h
-        sex = "HIJO" if "Y" in (a1, a2) else "HIJA"
-        col = C.BLUE if sex == "HIJO" else C.PURPLE
-        
-        # Estado (Inferido por mayusculas)
-        if sex == "HIJO":
-            st = f"{C.GREEN}SANO" if a1.isupper() else f"{C.RED}ENF."
-        else:
-            gs = sorted([a1, a2])
-            if gs[0].isupper() and gs[1].isupper(): st=f"{C.GREEN}SANA"
-            elif gs[0].isupper(): st=f"{C.YELLOW}PORT."
-            else: st=f"{C.RED}ENF."
-            
-        gen_txt = f"X{a1}Y" if sex=="HIJO" else f"X{sorted([a1,a2])[0]}X{sorted([a1,a2])[1]}"
-        
-        nodo = crear_nodo_res(sex, gen_txt, st, col, 12)
-        for i in range(5): filas[i].append(nodo[i])
-
-    for f in filas:
-        print(f"   {'  '.join(f)}")
-    print("\n")
-
-
-# --- 4. FLUJO PRINCIPAL (MAIN LOOP) ---
-
-def main():
-    datos = {}
-    
-    # FASE 1: Nombre Enfermedad
-    dibujar_input_dashboard(1, datos)
-    # Input flotante simulado
-    print(f"      {C.GREY}Escribe el nombre de la enfermedad:{C.RESET}")
-    enf = input(f"      {C.CYAN}❯ {C.RESET}").strip().capitalize()
+    # Caja 1: Enfermedad
+    print(f" {C.WHITE}Configuración del Análisis:{C.RESET}")
+    enf = input(f" {C.CYAN}► Nombre de la patología: {C.RESET}").strip().capitalize()
     if not enf: enf = "Hemofilia"
-    datos['enf'] = enf
     
-    # Preparar alelos
     S = enf[0].upper()
     e = enf[0].lower()
-
-    # FASE 2: Madre
-    dibujar_input_dashboard(2, datos)
-    print(f"      {C.PURPLE}Selecciona genotipo MADRE (1-3):{C.RESET}")
-    try: 
-        m = int(input(f"      {C.PURPLE}❯ {C.RESET}"))
+    
+    # Caja 2: Madre y Padre (Inputs simples para velocidad)
+    print(f"\n {C.PURPLE}► Madre (XX):{C.RESET} [1]Sana [2]Portadora [3]Enferma")
+    try: m = int(input(f"   Selección {C.GREY}>>{C.RESET} "))
     except: m = 1
-    datos['m_op'] = m
-
-    # FASE 3: Padre
-    dibujar_input_dashboard(3, datos)
-    print(f"      {C.BLUE}Selecciona genotipo PADRE (1-2):{C.RESET}")
-    try: 
-        p = int(input(f"      {C.BLUE}❯ {C.RESET}"))
+    
+    print(f"\n {C.BLUE}► Padre (XY):{C.RESET} [1]Sano [2]Enfermo")
+    try: p = int(input(f"   Selección {C.GREY}>>{C.RESET} "))
     except: p = 1
-    datos['p_op'] = p
 
-    # FASE 4: Procesando...
-    dibujar_input_dashboard(4, datos) # Muestra todo seleccionado
-    print(f"      {C.GREEN}Configuración completada. Calculando...{C.RESET}")
-    time.sleep(1.5)
-
-    # CÁLCULO
-    m_alelos = (S,S) if m==1 else (S,e) if m==2 else (e,e)
-    p_alelos = (S,"Y") if p==1 else (e,"Y")
+    # Cálculos
+    m_genes = (S,S) if m==1 else (S,e) if m==2 else (e,e)
+    p_genes = (S,"Y") if p==1 else (e,"Y")
+    
     hijos = [
-        (m_alelos[0], p_alelos[0]), (m_alelos[0], p_alelos[1]),
-        (m_alelos[1], p_alelos[0]), (m_alelos[1], p_alelos[1])
+        (m_genes[0], p_genes[0]), # Hija 1
+        (m_genes[0], p_genes[1]), # Hijo 1
+        (m_genes[1], p_genes[0]), # Hija 2
+        (m_genes[1], p_genes[1])  # Hijo 2
     ]
 
-    # MOSTRAR RESULTADOS
-    imprimir_arbol_final(p_alelos, m_alelos, hijos)
+    limpiar()
+    print("\n")
+
+    # --- RENDERIZADO VISUAL ---
+    
+    # 1. NIVEL SUPERIOR: PADRES (Cajas Flotantes)
+    
+    # Preparamos el contenido de las cajas
+    # Formato: ICONO GENOTIPO
+    c_madre = [
+        f"{C.WHITE}Genotipo:{C.RESET}",
+        f"{C.PURPLE}{C.BOLD}X{m_genes[0]} X{m_genes[1]}{C.RESET}",
+        f"{C.GREY}(Cromosomas XX){C.RESET}"
+    ]
+    
+    c_padre = [
+        f"{C.WHITE}Genotipo:{C.RESET}",
+        f"{C.BLUE}{C.BOLD}X{p_genes[0]} {p_genes[1]}{C.RESET}",
+        f"{C.GREY}(Cromosomas XY){C.RESET}"
+    ]
+
+    box_m = dibujar_caja("MADRE", c_madre, C.PURPLE, ancho=26)
+    box_p = dibujar_caja("PADRE", c_padre, C.BLUE, ancho=26)
+    
+    # Dibujar flechas de conexión en medio
+    # Creamos un "bloque" de texto que sea solo las flechas
+    conector = [
+        "", "",
+        f" {C.GREY}{Box.S_H*3}► CRUCE ◄{Box.S_H*3}{C.RESET} ", 
+        "", ""
+    ]
+    
+    # Imprimimos: MADRE - CONECTOR - PADRE
+    print(centrar_seguro(f"{C.WHITE}MAPA DE HERENCIA GENÉTICA: {enf.upper()}{C.RESET}", 80))
+    print("")
+    # Truco de alineación global: calculamos margen izquierdo
+    margen = " " * 8
+    unir_bloques_horizontalmente([margen, *box_p, conector, *box_m], espaciado=0)
+
+    # 2. NIVEL INFERIOR: DESCENDENCIA (4 Nodos)
+    
+    print(f"\n{centrar_seguro(f'{C.GREY}▼ RESULTADOS PROBABILÍSTICOS ▼{C.RESET}', 80)}\n")
+    
+    bloques_hijos = []
+    
+    for i, gen in enumerate(hijos):
+        a1, a2 = gen
+        es_hombre = "Y" in gen
+        
+        # Determinar estado y colores
+        texto_estado = ""
+        color_estado = ""
+        
+        if es_hombre:
+            titulo = f"HIJO {i+1}"
+            borde = C.BLUE
+            gen_str = f"X{a1} Y"
+            if a1 == S: 
+                texto_estado = "SANO"
+                color_estado = C.GREEN
+            else:
+                texto_estado = "ENFERMO"
+                color_estado = C.RED
+        else:
+            titulo = f"HIJA {i+1}"
+            borde = C.PURPLE
+            gens = sorted([a1, a2])
+            gen_str = f"X{gens[0]} X{gens[1]}"
+            if gens == [S, S]:
+                texto_estado = "SANA"
+                color_estado = C.GREEN
+            elif gens == [S, e]:
+                texto_estado = "PORTADORA"
+                color_estado = C.YELLOW
+            else:
+                texto_estado = "ENFERMA"
+                color_estado = C.RED
+        
+        # Contenido de la tarjeta del hijo
+        contenido = [
+            f"{C.WHITE}{gen_str}{C.RESET}",
+            f"{C.GREY}{Box.S_H*10}{C.RESET}", # Separador interno
+            f"{color_estado}{C.BOLD}{texto_estado}{C.RESET}"
+        ]
+        
+        # Crear caja y añadir a la lista
+        bloques_hijos.append(dibujar_caja(titulo, contenido, borde, ancho=18))
+
+    # Imprimir los 4 hijos alineados
+    # Calculamos margen para centrar 4 cajas de 18 chars + 3 espacios entre ellas
+    # Ancho total approx = (18*4) + (2*3) = 72 + 6 = 78 chars.
+    unir_bloques_horizontalmente([" "] + bloques_hijos, espaciado=1)
+    print("\n")
 
 if __name__ == "__main__":
     while True:
-        main()
-        if input(f"{C.GREY}Presiona Enter para reiniciar o 'n' para salir: {C.RESET}") == 'n': break
+        app()
+        if input(f"{C.GREY} [Enter] Nuevo análisis / [n] Salir: {C.RESET}").lower() == 'n':
+            break
