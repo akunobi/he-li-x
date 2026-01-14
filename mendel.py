@@ -2,157 +2,132 @@ import os
 import time
 import sys
 
-class Colores:
-    # Estilos de texto
-    HEADER = '\033[95m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    END = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    
-    # Fondos (opcional para resaltar headers)
-    BG_BLUE = '\033[44m'
+# --- CONFIGURACIÓN DE COLORES ---
+class C:
+    H = '\033[95m'   # Header (Morado)
+    B = '\033[94m'   # Blue
+    G = '\033[92m'   # Green (Sano)
+    Y = '\033[93m'   # Yellow (Portador)
+    R = '\033[91m'   # Red (Enfermo)
+    E = '\033[0m'    # End (Reset)
+    Bold = '\033[1m'
 
-def limpiar_pantalla():
-    # Detecta si es Windows ('nt') o Linux/Mac ('posix')
+def limpiar():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def barra_carga():
-    print(f"\n{Colores.CYAN}Procesando cruce genético...{Colores.END}")
-    # Simula una barra de carga
-    ancho = 40
-    for i in range(ancho + 1):
-        time.sleep(0.04) # Velocidad de la carga
-        sys.stdout.write(f"\r[{'█' * i}{'.' * (ancho - i)}] {int((i/ancho)*100)}%")
-        sys.stdout.flush()
-    print("\n")
+def formatear_gen_ordenado(a1, a2):
+    # Función para ordenar: Siempre mayúscula primero (XH Xh)
+    if a2 == "Y": return f"X{a1} Y"
+    gens = sorted([a1, a2])
+    return f"X{gens[0]} X{gens[1]}"
 
-def formatear_gen(a1, a2, S):
-    # Esta función ordena los genes (Dominante primero) y devuelve string coloreado
-    # Si hay una Y, siempre va segunda
-    if a2 == "Y":
-        txt = f"X{a1} Y"
-    else:
-        # Ordenamos alfabéticamente (Mayúscula 'H' antes que minúscula 'h')
-        gens = sorted([a1, a2])
-        txt = f"X{gens[0]} X{gens[1]}"
-    return txt
+def obtener_estado(alelo1, alelo2, S):
+    # Lógica para determinar Sano/Portador/Enfermo y devolver texto coloreado
+    if alelo2 == "Y": # Hombre
+        return f"{C.G}SANO ✅{C.E}" if alelo1 == S else f"{C.R}ENFERMO ❌{C.E}"
+    else: # Mujer
+        gens = sorted([alelo1, alelo2])
+        if gens == [S, S]: return f"{C.G}SANA ✅{C.E}"
+        elif gens == [S, S.lower()]: return f"{C.Y}PORTADORA ⚠️{C.E}"
+        else: return f"{C.R}ENFERMA ❌{C.E}"
 
-def calcular_herencia():
-    limpiar_pantalla()
-    
-    # Banner ASCII
-    print(f"{Colores.HEADER}{Colores.BOLD}")
-    print(r"""
-   ____ _____ _   _ _____ _____ ___ ____    _    
-  / ___| ____| \ | | ____|_   _|_ _/ ___|  / \   
- | |  _|  _| |  \| |  _|   | |  | | |     / _ \  
- | |_| | |___| |\  | |___  | |  | | |___ / ___ \ 
-  \____|_____|_| \_|_____| |_| |___\____/_/   \_\
-    """)
-    print(f"    🧬 CALCULADORA DE CROMOSOMA X 🧬{Colores.END}\n")
+def calcular():
+    limpiar()
+    print(f"{C.H}{C.Bold}╔═════════════════════════════════════════════════════════╗")
+    print(f"║       🧬  ANALIZADOR GENÉTICO HORIZONTAL  🧬        ║")
+    print(f"╚═════════════════════════════════════════════════════════╝{C.E}\n")
 
-    # --- PASO 1 ---
-    print(f"{Colores.BG_BLUE}{Colores.BOLD} PASO 1: Configuración {Colores.END}")
-    enfermedad = input(f" {Colores.BOLD}Nombre de la enfermedad:{Colores.END} ").capitalize()
-    if not enfermedad: enfermedad = "Enfermedad"
-    
-    S = enfermedad[0].upper()
-    e = enfermedad[0].lower()
+    # --- ENTRADA DE DATOS (Esto se queda vertical para facilidad de uso) ---
+    enfermedad = input(f"Nombre de la enfermedad: {C.Bold}").capitalize()
+    if not enfermedad: enfermedad = "Hemofilia"
+    print(C.E, end="") # Reset color
 
-    print(f"\n Detectado: Sano = {Colores.GREEN}{S}{Colores.END} | Enfermo = {Colores.RED}{e}{Colores.END}")
+    S = enfermedad[0].upper() # Dominante
+    e = enfermedad[0].lower() # Recesivo
 
-    # --- PASO 2 ---
-    print(f"\n{Colores.BG_BLUE}{Colores.BOLD} PASO 2: Padres {Colores.END}")
-    
+    print(f"\n{C.B}--- Configuración de Padres ---{C.E}")
     # Madre
-    print(f"\n {Colores.HEADER}Madre (XX){Colores.END}:")
-    print(f" [1] {Colores.GREEN}Sana{Colores.END}      (X{S} X{S})")
-    print(f" [2] {Colores.YELLOW}Portadora{Colores.END} (X{S} X{e})")
-    print(f" [3] {Colores.RED}Enferma{Colores.END}   (X{e} X{e})")
-    try:
-        m_opc = int(input(f" >> Selecciona {Colores.CYAN}(1-3){Colores.END}: "))
-    except:
-        m_opc = 1 # Por defecto si falla
-
-    # Padre
-    print(f"\n {Colores.BLUE}Padre (XY){Colores.END}:")
-    print(f" [1] {Colores.GREEN}Sano{Colores.END}    (X{S} Y)")
-    print(f" [2] {Colores.RED}Enfermo{Colores.END} (X{e} Y)")
-    try:
-        p_opc = int(input(f" >> Selecciona {Colores.CYAN}(1-2){Colores.END}: "))
-    except:
-        p_opc = 1
-
-    # Lógica
-    if m_opc == 1: m_alelos = (S, S)
-    elif m_opc == 2: m_alelos = (S, e)
-    else: m_alelos = (e, e)
+    print(f"Madre ♀: [1]{C.G}Sana{C.E} [2]{C.Y}Portadora{C.E} [3]{C.R}Enferma{C.E}")
+    try: m_opc = int(input(">> Opción: "))
+    except: m_opc = 1
     
-    if p_opc == 1: p_alelos = (S, "Y")
-    else: p_alelos = (e, "Y")
+    # Padre
+    print(f"Padre ♂: [1]{C.G}Sano{C.E} [2]{C.R}Enfermo{C.E}")
+    try: p_opc = int(input(">> Opción: "))
+    except: p_opc = 1
 
-    # Ejecutar animación
-    barra_carga()
+    # Definir alelos
+    m_alelos = (S, S) if m_opc == 1 else (S, e) if m_opc == 2 else (e, e)
+    p_alelos = (S, "Y") if p_opc == 1 else (e, "Y")
 
-    # --- RESULTADOS ---
-    # Pre-calculamos los textos de las celdas para que la tabla no se rompa
-    # Usamos la funcion formatear_gen para que ordene (XhXH -> XHXh)
-    celda_1 = formatear_gen(m_alelos[0], p_alelos[0], S).replace(" ", "")
-    celda_2 = formatear_gen(m_alelos[0], p_alelos[1], S).replace(" ", "")
-    celda_3 = formatear_gen(m_alelos[1], p_alelos[0], S).replace(" ", "")
-    celda_4 = formatear_gen(m_alelos[1], p_alelos[1], S).replace(" ", "")
+    # --- CONSTRUCCIÓN DEL LAYOUT HORIZONTAL ---
+    
+    # 1. Preparar datos de las celdas de la tabla
+    c1 = formatear_gen_ordenado(m_alelos[0], p_alelos[0]).replace(" ","")
+    c2 = formatear_gen_ordenado(m_alelos[0], p_alelos[1]).replace(" ","")
+    c3 = formatear_gen_ordenado(m_alelos[1], p_alelos[0]).replace(" ","")
+    c4 = formatear_gen_ordenado(m_alelos[1], p_alelos[1]).replace(" ","")
 
-    print(f"{Colores.BOLD}TABLA DE PUNNETT:{Colores.END}")
-    # Construcción rígida de tabla usando f-strings con ancho fijo (:^10)
-    print(f"           {Colores.BLUE}Padre ♂{Colores.END}")
-    print(f"            {Colores.BOLD}X{p_alelos[0]}          {p_alelos[1]}{Colores.END}")
-    print(f"      ┌────────────┬────────────┐")
-    print(f"   {Colores.HEADER}X{m_alelos[0]}{Colores.END} │ {celda_1:^10} │ {celda_2:^10} │")
-    print(f" {Colores.HEADER}M{Colores.END}    │            │            │")
-    print(f" {Colores.HEADER}a{Colores.END}    ├────────────┼────────────┤")
-    print(f" {Colores.HEADER}m{Colores.END}    │            │            │")
-    print(f" {Colores.HEADER}á{Colores.END} {Colores.HEADER}X{m_alelos[1]}{Colores.END} │ {celda_3:^10} │ {celda_4:^10} │")
-    print(f"      └────────────┴────────────┘")
-    print("")
-
-    # Lista detallada
-    hijos_raw = [
-        (m_alelos[0], p_alelos[0]),
-        (m_alelos[1], p_alelos[0]),
-        (m_alelos[0], p_alelos[1]),
-        (m_alelos[1], p_alelos[1])
+    # 2. Crear las líneas de la TABLA (Izquierda)
+    # Usamos ljust() y colores cuidadosamente
+    bloque_tabla = [
+        f"           {C.B}Padre ♂{C.E}",
+        f"            X{p_alelos[0]}          {p_alelos[1]}",
+        f"      ┌────────────┬────────────┐",
+        f"   X{m_alelos[0]} │ {c1:^10} │ {c2:^10} │",
+        f" M    ├────────────┼────────────┤",
+        f"   X{m_alelos[1]} │ {c3:^10} │ {c4:^10} │",
+        f"      └────────────┴────────────┘"
     ]
 
-    print(f"{Colores.UNDERLINE}Desglose de Fenotipos:{Colores.END}\n")
+    # 3. Crear las líneas de los RESULTADOS (Derecha)
+    bloque_info = [
+        f"{C.H}{C.Bold}   RESULTADOS Y PROBABILIDADES:{C.E}",
+        f"   ────────────────────────────",
+    ]
     
-    for gen in hijos_raw:
-        a1, a2 = gen
-        gen_str = formatear_gen(a1, a2, S) # Esto asegura XH Xh ordenado
-        
-        if "Y" in gen:
-            sexo = f"{Colores.BLUE}Hijo ♂{Colores.END}"
-            if a1 == S: estado = f"{Colores.GREEN}SANO ✅{Colores.END}"
-            else: estado = f"{Colores.RED}ENFERMO ❌{Colores.END}"
-        else:
-            sexo = f"{Colores.HEADER}Hija ♀{Colores.END}"
-            genes = sorted([a1, a2])
-            if genes == [S, S]: estado = f"{Colores.GREEN}SANA ✅{Colores.END}"
-            elif genes == [S, e]: estado = f"{Colores.YELLOW}PORTADORA ⚠️{Colores.END}"
-            else: estado = f"{Colores.RED}ENFERMA ❌{Colores.END}"
+    # Generar texto de los 4 hijos
+    hijos_raw = [(m_alelos[0], p_alelos[0]), (m_alelos[0], p_alelos[1]), 
+                 (m_alelos[1], p_alelos[0]), (m_alelos[1], p_alelos[1])]
+    
+    for i, gen in enumerate(hijos_raw):
+        sexo = "Hijo ♂" if "Y" in gen else "Hija ♀"
+        gen_txt = formatear_gen_ordenado(gen[0], gen[1])
+        estado = obtener_estado(gen[0], gen[1], S)
+        bloque_info.append(f"   {i+1}. {sexo}: {gen_txt:<7} → {estado}")
 
-        print(f" • {sexo} [{gen_str}] -> {estado}")
+    # 4. IMPRESIÓN LADO A LADO
+    print(f"\n{C.Bold}Cruce Genético Visualizado:{C.E}\n")
     
+    # Determinar altura máxima para el bucle
+    altura = max(len(bloque_tabla), len(bloque_info))
+    
+    for i in range(altura):
+        # Obtener línea izquierda (o vacío si se acaba)
+        izq = bloque_tabla[i] if i < len(bloque_tabla) else " " * 35 
+        
+        # Obtener línea derecha (o vacío)
+        der = bloque_info[i] if i < len(bloque_info) else ""
+        
+        # Ajuste de espaciado: La tabla visualmente ocupa unos 35-40 caracteres
+        # necesitamos calcular el padding manual porque los códigos de color 
+        # confunden a la función len() estándar.
+        
+        # Truco: Imprimimos Izquierda + Espaciador + Derecha
+        # El padding fijo se añade tras la tabla
+        padding = " " * 4 
+        
+        # Como 'izq' tiene códigos de colores invisibles, alinear es difícil con string format.
+        # Simplemente imprimimos con un tabulador manual o calculando espacios visuales.
+        # Para simplificar y que no se rompa, asumimos un ancho fijo visual para la columna 1.
+        
+        # Imprimir fila combinada
+        # Nota: La tabla tiene ancho variable por colores, así que usamos un ancho fijo visual grande
+        print(f"{izq:<50} {padding} {der}")
+
     print("\n")
 
 if __name__ == "__main__":
     while True:
-        calcular_herencia()
-        seguir = input(f"{Colores.CYAN}¿Calcular otra? (s/n): {Colores.END}").lower()
-        if seguir != 's':
-            print("¡Hasta luego!")
-            break
+        calcular()
+        if input(f"{C.B}¿Otra vez? (Enter=Si, n=No): {C.E}") == 'n': break
