@@ -1,202 +1,205 @@
 import os
 import time
 import sys
+import re
 
-# --- 1. CONFIGURACIÓN VISUAL (COLORES Y ESTILOS) ---
-class C:
-    # Colores de fuente
-    PURPLE = '\033[95m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    WHITE = '\033[97m'
-    GREY = '\033[90m'
-    
-    # Fondos (Backgrounds)
-    BG_BLUE = '\033[44m'
-    BG_RED = '\033[41m'
-    
-    # Estilos
-    END = '\033[0m'
+# --- CONFIGURACIÓN DE NERD FONTS Y COLORES ---
+class Icon:
+    # Nerd Fonts (Iconos)
+    DNA = ""       # Matraz/DNA
+    MALE = ""      # Hombre
+    FEMALE = ""    # Mujer
+    HEART = ""     # Corazón/Salud
+    CHECK = ""     # Check
+    WARN = ""      # Triángulo alerta
+    CROSS = ""     # Cruz error
+    ARROW = ""     # Flecha derecha
+    CHART = ""     # Gráfico
+    BOX_TOP = "┌"
+    BOX_MID = "├"
+    BOX_BOT = "└"
+    LINE_H = "─"
+    LINE_V = "│"
+    DOT = ""
+
+class Color:
+    PURPLE = '\033[38;5;141m'
+    BLUE = '\033[38;5;39m'
+    CYAN = '\033[38;5;44m'
+    GREEN = '\033[38;5;77m'
+    YELLOW = '\033[38;5;220m'
+    ORANGE = '\033[38;5;208m'
+    RED = '\033[38;5;196m'
+    GREY = '\033[38;5;240m'
+    WHITE = '\033[38;5;255m'
     BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+    END = '\033[0m'
 
-# Ancho fijo de la interfaz para que siempre se vea centrada y perfecta
-ANCHO = 74 
+# --- MOTOR DE ALINEACIÓN PERFECTA ---
 
-# --- 2. HERRAMIENTAS DE DIBUJO ---
+def len_visible(texto):
+    """Calcula la longitud del texto ignorando los códigos de color ANSI"""
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return len(ansi_escape.sub('', texto))
+
+def centrar_celda(texto, ancho):
+    """Centra texto con colores dentro de un ancho fijo sin romper la tabla"""
+    largo_real = len_visible(texto)
+    padding = ancho - largo_real
+    pad_izq = padding // 2
+    pad_der = padding - pad_izq
+    return " " * pad_izq + texto + " " * pad_der
+
+def imprimir_fila(col_izq, col_der, ancho_izq=36):
+    """Imprime dos columnas alineadas perfectamente ignorando colores"""
+    largo_izq = len_visible(col_izq)
+    # Calculamos cuántos espacios faltan para llegar al ancho deseado
+    espacios = " " * (ancho_izq - largo_izq)
+    if largo_izq > ancho_izq: 
+        espacios = " " # Si se pasa, al menos un espacio
+    print(f" {col_izq}{espacios}   {Color.GREY}│{Color.END}   {col_der}")
 
 def limpiar():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def centrar(texto, color=C.WHITE, ancho=ANCHO):
-    # Calcula espacios para centrar el texto
-    return f"{color}{texto.center(ancho)}{C.END}"
-
-def linea_horizontal(estilo="simple"):
-    char = "─" if estilo == "simple" else "═"
-    return f"{C.BLUE}{char * ANCHO}{C.END}"
-
-def imprimir_header():
-    print(f"{C.CYAN}╔{'═' * (ANCHO-2)}╗{C.END}")
-    print(centrar("🧬  SISTEMA DE ANÁLISIS GENÉTICO (CROMOSOMA X)  🧬", C.BOLD + C.CYAN))
-    print(f"{C.CYAN}╚{'═' * (ANCHO-2)}╝{C.END}")
-
-def input_validado(prompt, opciones_validas):
-    while True:
-        try:
-            val = int(input(f"{C.BOLD} >> {prompt}: {C.END}"))
-            if val in opciones_validas:
-                return val
-            print(f"{C.RED}    ⚠ Error: Opción no válida. Intente de nuevo.{C.END}")
-        except ValueError:
-            print(f"{C.RED}    ⚠ Error: Debe ingresar un número.{C.END}")
-
-def animacion_carga():
-    print("")
-    sys.stdout.write(f"    {C.CYAN}Procesando ADN: {C.END}")
-    for i in range(20):
-        time.sleep(0.02)
-        sys.stdout.write("█")
-        sys.stdout.flush()
-    print(" ✅\n")
-
-# --- 3. LÓGICA GENÉTICA ---
+# --- LÓGICA DE GENÉTICA ---
 
 def formatear_alelo(a1, a2):
-    # Devuelve string ordenado (ej: XH Xh)
+    # Ordena: Mayúscula primero. Si hay Y, va segunda.
     if a2 == "Y": return f"X{a1} Y"
-    genes = sorted([a1, a2])
-    return f"X{genes[0]} X{genes[1]}"
+    gens = sorted([a1, a2])
+    return f"X{gens[0]} X{gens[1]}"
 
-def analizar_estado(a1, a2, S):
-    # Devuelve (Texto Estado, Color, Icono)
-    if a2 == "Y": # Hombre
-        if a1 == S: return ("SANO", C.GREEN, "✅")
-        else: return ("ENFERMO", C.RED, "❌")
-    else: # Mujer
+def obtener_estado(a1, a2, S):
+    # Retorna: (Texto formateado, Icono)
+    if a2 == "Y": # Chico
+        if a1 == S: return (f"{Color.GREEN}SANO{Color.END}", Icon.CHECK)
+        else: return (f"{Color.RED}ENFERMO{Color.END}", Icon.CROSS)
+    else: # Chica
         gens = sorted([a1, a2])
-        if gens == [S, S]: return ("SANA", C.GREEN, "✅")
-        elif gens == [S, S.lower()]: return ("PORTADORA", C.YELLOW, "⚠️")
-        else: return ("ENFERMA", C.RED, "❌")
+        if gens == [S, S]: return (f"{Color.GREEN}SANA{Color.END}", Icon.CHECK)
+        elif gens == [S, S.lower()]: return (f"{Color.YELLOW}PORTADORA{Color.END}", Icon.WARN)
+        else: return (f"{Color.RED}ENFERMA{Color.END}", Icon.CROSS)
 
-# --- 4. PROGRAMA PRINCIPAL ---
+# --- APP PRINCIPAL ---
 
 def app():
     limpiar()
-    imprimir_header()
     
-    # --- PASO 1: NOMBRE ---
-    print(centrar("CONFIGURACIÓN DE LA PATOLOGÍA", C.WHITE))
-    print(linea_horizontal())
-    enfermedad = input(f"    Nombre de la enfermedad (ej. Hemofilia): {C.CYAN}").capitalize()
+    # Header
+    print(f"\n{Color.PURPLE}{Color.BOLD} {Icon.DNA}  CALCULADORA GENÉTICA (CROMOSOMA X) {Color.END}")
+    print(f"{Color.GREY}{Icon.LINE_H * 60}{Color.END}\n")
+
+    # Inputs
+    print(f" {Icon.HEART}  Nombre de la patología:")
+    enfermedad = input(f" {Color.BLUE} {Icon.ARROW}  {Color.END}").capitalize()
     if not enfermedad: enfermedad = "Hemofilia"
     
     S = enfermedad[0].upper()
     e = enfermedad[0].lower()
-    
-    # --- PASO 2: PADRES ---
-    print("\n" + centrar(f"GENOTIPOS DE LOS PROGENITORES", C.WHITE))
-    
-    # Panel Madre
-    print(f"    {C.PURPLE}MADRE (XX){C.END}")
-    print(f"    [1] {C.GREEN}Sana{C.END} (X{S}X{S})   [2] {C.YELLOW}Portadora{C.END} (X{S}X{e})   [3] {C.RED}Enferma{C.END} (X{e}X{e})")
-    m_opc = input_validado("Seleccione condición de la Madre", [1, 2, 3])
 
-    print("-" * ANCHO)
-
-    # Panel Padre
-    print(f"    {C.BLUE}PADRE (XY){C.END}")
-    print(f"    [1] {C.GREEN}Sano{C.END} (X{S}Y)      [2] {C.RED}Enfermo{C.END} (X{e}Y)")
-    p_opc = input_validado("Seleccione condición del Padre", [1, 2])
+    print(f"\n {Icon.FEMALE}  {Color.ORANGE}MADRE{Color.END} [1]Sana [2]Portadora [3]Enferma")
+    try: m_opc = int(input(f" {Color.BLUE} {Icon.ARROW}  {Color.END}"))
+    except: m_opc = 1
+    
+    print(f"\n {Icon.MALE}  {Color.CYAN}PADRE{Color.END} [1]Sano [2]Enfermo")
+    try: p_opc = int(input(f" {Color.BLUE} {Icon.ARROW}  {Color.END}"))
+    except: p_opc = 1
 
     # Definir alelos
     m_alelos = (S, S) if m_opc == 1 else (S, e) if m_opc == 2 else (e, e)
     p_alelos = (S, "Y") if p_opc == 1 else (e, "Y")
 
-    animacion_carga()
-
-    # --- PASO 3: VISUALIZACIÓN ---
     limpiar()
-    imprimir_header()
-    print(centrar(f"RESULTADOS DEL CRUCE: {enfermedad.upper()}", C.YELLOW))
-    print(linea_horizontal("doble"))
-
-    # Preparar celdas tabla
-    c1 = formatear_alelo(m_alelos[0], p_alelos[0]).replace(" ","")
-    c2 = formatear_alelo(m_alelos[0], p_alelos[1]).replace(" ","")
-    c3 = formatear_alelo(m_alelos[1], p_alelos[0]).replace(" ","")
-    c4 = formatear_alelo(m_alelos[1], p_alelos[1]).replace(" ","")
-
-    # Layout Horizontal
-    # Izquierda: Tabla Punnett
-    # Derecha: Lista Resultados
     
-    col_izq = [
-        f"           {C.BLUE}Padre ♂{C.END}",
-        f"            X{p_alelos[0]}          {p_alelos[1]}",
-        f"      ┌────────────┬────────────┐",
-        f"   X{m_alelos[0]} │ {C.BOLD}{c1:^10}{C.END} │ {C.BOLD}{c2:^10}{C.END} │",
-        f" M    ├────────────┼────────────┤",
-        f" a X{m_alelos[1]} │ {C.BOLD}{c3:^10}{C.END} │ {C.BOLD}{c4:^10}{C.END} │",
-        f"      └────────────┴────────────┘"
+    # --- RENDERIZADO DEL DASHBOARD ---
+    
+    print(f"\n{Color.BOLD}{Color.WHITE}  RESUMEN: CRUCE {enfermedad.upper()}{Color.END}")
+    print(f"  {Color.GREY}Padres: X{m_alelos[0]}X{m_alelos[1]}  x  X{p_alelos[0]}Y{Color.END}\n")
+
+    # Preparar datos de celdas (Texto coloreado)
+    def c(a1, a2):
+        txt = formatear_alelo(a1, a2).replace(" ", "")
+        # Colorear genes: Verde mayus, Rojo minus
+        res = ""
+        for char in txt:
+            if char == S: res += f"{Color.GREEN}{char}{Color.END}"
+            elif char == e: res += f"{Color.RED}{char}{Color.END}"
+            elif char in ["X", "Y"]: res += f"{Color.GREY}{char}{Color.END}"
+        return res
+
+    # Generamos los contenidos de las 4 celdas
+    c1 = c(m_alelos[0], p_alelos[0])
+    c2 = c(m_alelos[0], p_alelos[1])
+    c3 = c(m_alelos[1], p_alelos[0])
+    c4 = c(m_alelos[1], p_alelos[1])
+
+    # Columna Izquierda: TABLA PUNNETT (Construcción manual precisa)
+    # Usamos centrar_celda para asegurar que los códigos de color no rompan el ancho
+    W = 10 # Ancho de celda
+    tabla = [
+        f"        {Color.CYAN}{Icon.MALE} Padre{Color.END}",
+        f"        X{p_alelos[0]}        {p_alelos[1]}",
+        f"     {Icon.BOX_TOP}{Icon.LINE_H*W}{Icon.LINE_H}{Icon.LINE_H*W}{Icon.BOX_TOP[::-1]}", # Top border
+        f"  X{m_alelos[0]} {Icon.LINE_V}{centrar_celda(c1, W)}{Icon.LINE_V}{centrar_celda(c2, W)}{Icon.LINE_V}",
+        f"{Color.ORANGE}{Icon.FEMALE}{Color.END}    {Icon.BOX_MID}{Icon.LINE_H*W}{Icon.BOX_MID}{Icon.LINE_H*W}{Icon.BOX_MID[::-1]}",
+        f"  X{m_alelos[1]} {Icon.LINE_V}{centrar_celda(c3, W)}{Icon.LINE_V}{centrar_celda(c4, W)}{Icon.LINE_V}",
+        f"     {Icon.BOX_BOT}{Icon.LINE_H*W}┴{Icon.LINE_H*W}┘"
     ]
 
-    col_der = [
-        f"{C.UNDERLINE}DESGLOSE DE DESCENDENCIA:{C.END}",
-        "" # Espacio vacío
-    ]
+    # Columna Derecha: RESULTADOS
+    resultados_txt = [f"{Icon.CHART} {Color.BOLD}ANÁLISIS DESCENDENCIA{Color.END}", ""]
+    
+    hijos = [(m_alelos[0], p_alelos[0]), (m_alelos[0], p_alelos[1]),
+             (m_alelos[1], p_alelos[0]), (m_alelos[1], p_alelos[1])]
+    
+    stats = {"SANO": 0, "PORTADORA": 0, "ENFERMO": 0}
 
-    hijos_raw = [(m_alelos[0], p_alelos[0]), (m_alelos[0], p_alelos[1]), 
-                 (m_alelos[1], p_alelos[0]), (m_alelos[1], p_alelos[1])]
-    
-    # Contadores para estadísticas
-    enfermos = 0
-    portadores = 0
-    
-    for i, gen in enumerate(hijos_raw):
-        sexo = "👦 Hijo" if "Y" in gen else "👧 Hija"
-        gen_txt = formatear_alelo(gen[0], gen[1])
-        txt_estado, color_est, icono = analizar_estado(gen[0], gen[1], S)
+    for gen in hijos:
+        # Texto del genotipo formateado bonito
+        gen_bonito = formatear_alelo(gen[0], gen[1])
+        estado_txt, icono = obtener_estado(gen[0], gen[1], S)
         
-        # Guardar linea de texto
-        col_der.append(f"{i+1}. {sexo} {gen_txt:<6} → {color_est}{txt_estado} {icono}{C.END}")
+        # Icono sexo
+        sexo_icon = f"{Color.CYAN}{Icon.MALE}{Color.END}" if "Y" in gen else f"{Color.ORANGE}{Icon.FEMALE}{Color.END}"
         
-        # Stats
-        if txt_estado == "ENFERMO" or txt_estado == "ENFERMA": enfermos += 1
-        if txt_estado == "PORTADORA": portadores += 1
+        # Guardar línea
+        linea = f"{sexo_icon} {gen_bonito:<6} {Icon.ARROW} {estado_txt} {icono}"
+        resultados_txt.append(linea)
+        
+        # Stats (simplificado para el contador)
+        clean_state = len_visible(estado_txt) # Truco sucio para saber estado
+        if "SANA" in estado_txt or "SANO" in estado_txt: stats["SANO"] += 1
+        elif "PORTADORA" in estado_txt: stats["PORTADORA"] += 1
+        else: stats["ENFERMO"] += 1
 
-    # Imprimir columnas lado a lado
-    for i in range(max(len(col_izq), len(col_der))):
-        izq = col_izq[i] if i < len(col_izq) else " " * 35
-        der = col_der[i] if i < len(col_der) else ""
-        print(f" {izq:<50}   {der}")
-
-    # --- PASO 4: RESUMEN ESTADÍSTICO (Footer) ---
-    print("\n" + linea_horizontal("doble"))
-    print(f"{C.BOLD} 📊 RESUMEN ESTADÍSTICO:{C.END}")
+    # --- IMPRIMIR COLUMNAS ALINEADAS ---
+    max_filas = max(len(tabla), len(resultados_txt))
     
-    prob_enf = (enfermos/4)*100
-    prob_port = (portadores/4)*100
-    prob_sano = 100 - prob_enf - prob_port
+    print(f"{Color.GREY}{Icon.LINE_H * 65}{Color.END}")
     
-    # Barra visual de porcentajes
-    barra = ""
-    barra += "█" * int(prob_sano/5) 
-    barra += "▒" * int(prob_port/5)
-    barra += "░" * int(prob_enf/5)
+    for i in range(max_filas):
+        # Obtener parte izquierda o espacio vacío
+        t_izq = tabla[i] if i < len(tabla) else ""
+        # Obtener parte derecha o espacio vacío
+        t_der = resultados_txt[i] if i < len(resultados_txt) else ""
+        
+        imprimir_fila(t_izq, t_der, ancho_izq=35)
+        
+    print(f"{Color.GREY}{Icon.LINE_H * 65}{Color.END}")
     
-    print(f"    Probabilidad de Enfermedad: {C.RED if prob_enf > 0 else C.GREEN}{prob_enf:.0f}%{C.END}")
-    print(f"    Probabilidad de Portador/a: {C.YELLOW if prob_port > 0 else C.GREY}{prob_port:.0f}%{C.END}")
-    print(f"    Visualización: [{C.GREEN}{'█'*int(prob_sano/10)}{C.YELLOW}{'█'*int(prob_port/10)}{C.RED}{'█'*int(prob_enf/10)}{C.END}]")
-    print(linea_horizontal("doble"))
-    print("\n")
+    # Barra de estadísticas final
+    total = 4
+    p_sano = int((stats["SANO"]/total)*10)
+    p_port = int((stats["PORTADORA"]/total)*10)
+    p_enf = int((stats["ENFERMO"]/total)*10)
+    
+    barra = f"{Color.GREEN}{Icon.DOT * p_sano}{Color.YELLOW}{Icon.DOT * p_port}{Color.RED}{Icon.DOT * p_enf}{Color.END}"
+    leyenda = f"{Color.GREEN}Sano: {stats['SANO']}{Color.END}  {Color.YELLOW}Port: {stats['PORTADORA']}{Color.END}  {Color.RED}Enf: {stats['ENFERMO']}{Color.END}"
+    
+    print(f"\n {Icon.CHART} Distribución: {barra}  ({leyenda})\n")
 
 if __name__ == "__main__":
     while True:
         app()
-        if input(f"{C.GREY}¿Analizar otro caso? (Enter=Sí, N=Salir): {C.END}").lower() == 'n':
-            print("Cerrando sistema...")
-            break
+        if input(f" {Icon.DNA} ¿Reiniciar? (Enter/n): ").lower() == 'n': break
