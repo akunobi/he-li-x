@@ -1,240 +1,216 @@
 import os
-import time
 import sys
-import random
+import time
 
-# --- CONFIGURACIÓN DE ESTILO CLÍNICO ---
+# --- 1. MOTOR GRÁFICO (NO TOCAR) ---
 class C:
-    # Paleta de colores "Monitor Médico"
-    CYAN = '\033[96m'      # Interfaz general
-    BLUE = '\033[94m'      # Datos masculinos / bordes
-    PURPLE = '\033[95m'    # Datos femeninos
-    GREEN = '\033[92m'     # Sano / Positivo
-    YELLOW = '\033[93m'    # Precaución / Portador
-    RED = '\033[91m'       # Alerta / Enfermo
-    WHITE = '\033[97m'     # Texto brillante
-    GREY = '\033[90m'      # Elementos pasivos
-    END = '\033[0m'        # Reset
+    CYAN = '\033[36m'
+    BLUE = '\033[34m'
+    PURPLE = '\033[35m'
+    GREEN = '\033[32m'
+    RED = '\033[31m'
+    YELLOW = '\033[33m'
+    GREY = '\033[90m'
+    WHITE = '\033[37m'
     BOLD = '\033[1m'
+    RESET = '\033[0m'
 
-class Sym:
-    # Símbolos Universales (No requieren NerdFonts)
-    MALE = "♂"
-    FEMALE = "♀"
-    ARROW = "►"
-    DOT = "•"
-    BLOCK = "█"
-    SHADE = "▒"
-    
-    # Bordes de caja (ASCII Extendido estándar)
-    TL = "╔" # Top Left
-    TR = "╗" # Top Right
-    BL = "╚" # Bottom Left
-    BR = "╝" # Bottom Right
-    H = "═"  # Horizontal
-    V = "║"  # Vertical
-    T_TOP = "╦"
-    T_BOT = "╩"
-    T_MID = "╬"
-    L_MID = "╠"
-    R_MID = "╣"
-
-# --- FUNCIONES VISUALES ---
+class Box:
+    TL, TR = "╭", "╮"
+    BL, BR = "╰", "╯"
+    H, V = "─", "│"
+    T_DOWN, T_UP = "┬", "┴"
+    JOINT = "┼"
 
 def limpiar():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def imprimir_adn_header():
-    # Arte ASCII grande y limpio
-    print(f"{C.CYAN}")
-    print(r"      ▄▄▄▄▄▄   ▐ ▄     ▄▄▄· ")
-    print(r"      •██  ▪  •█▌▐█   ▐█ ▀█ ")
-    print(r"       ▐█.▪ ▄█▀▄▐█▐▐▌ ▄█▀▀█ ")
-    print(r"       ▐█▌·▐█▌.▐▌██▐█▌▐█ ▪▐▌")
-    print(r"       ▀▀ur ▀█▄▀▪▀▀ █▪ ▀  ▀ ")
-    print(f"    {C.GREY}SISTEMA DE ANÁLISIS GENÉTICO v2.0{C.END}")
-    print(f"{C.BLUE}{Sym.H * 40}{C.END}\n")
+# --- 2. COMPONENTES DE INTERFAZ (UI) ---
 
-def barra_progreso_medica(texto):
-    print(f"\n{C.GREY} [{texto}]...{C.END}")
-    sys.stdout.write(f" {C.CYAN}")
-    for _ in range(30):
-        time.sleep(0.04)
-        # Efecto de latido o escaneo
-        char = random.choice(["-", "=", "≡", "▓"])
-        sys.stdout.write(char)
-        sys.stdout.flush()
-    sys.stdout.write(f"{C.END} {C.GREEN}[OK]{C.END}\n")
-
-def caja_texto(texto, color=C.WHITE, ancho=40):
-    # Encierra texto en una caja bonita
-    print(f" {color}{Sym.TL}{Sym.H * (ancho-2)}{Sym.TR}")
-    print(f" {Sym.V} {texto.center(ancho-4)} {Sym.V}")
-    print(f" {Sym.BL}{Sym.H * (ancho-2)}{Sym.BR}{C.END}")
-
-# --- LÓGICA GENÉTICA ---
-
-def formatear_alelo(a1, a2):
-    # Ordena para visualización: Mayúscula siempre a la izquierda
-    if a2 == "Y": return f"X{a1}Y " # Espacio extra para alinear con XX
-    genes = sorted([a1, a2])
-    return f"X{genes[0]}X{genes[1]}"
-
-def obtener_diagnostico(a1, a2, S):
-    """Retorna: (Texto Estado, Color)"""
-    # Lógica hombre
-    if a2 == "Y":
-        if a1 == S: return ("SANO", C.GREEN)
-        return ("ENFERMO", C.RED)
+def crear_tarjeta_simple(titulo, contenido, color_borde, ancho=30):
+    """Crea una caja simple con texto centrado"""
+    b_sup = f"{color_borde}{Box.TL}{Box.H*(ancho-2)}{Box.TR}{C.RESET}"
+    texto = f"{color_borde}{Box.V}{C.WHITE}{contenido.center(ancho-2)}{C.RESET}{color_borde}{Box.V}{C.RESET}"
+    b_inf = f"{color_borde}{Box.BL}{Box.H*(ancho-2)}{Box.BR}{C.RESET}"
     
-    # Lógica mujer
-    genes = sorted([a1, a2])
-    if genes == [S, S]: return ("SANA", C.GREEN)
-    if genes == [S, S.lower()]: return ("PORTADORA", C.YELLOW)
-    return ("ENFERMA", C.RED)
+    # Etiqueta incrustada en el borde superior
+    etiqueta = f" {titulo} "
+    b_sup = b_sup.replace(Box.H * len(etiqueta), etiqueta, 1)
+    
+    return [b_sup, texto, b_inf]
 
-# --- PROGRAMA PRINCIPAL ---
+def crear_panel_opciones(titulo, opciones, seleccion_actual, color, ancho=26):
+    """Crea un menú de opciones seleccionable visualmente"""
+    lineas = []
+    # Borde Superior con Titulo
+    b_s = f"{color}{Box.TL}{Box.H*2} {titulo} {Box.H*(ancho - 4 - len(titulo))}{Box.TR}{C.RESET}"
+    lineas.append(b_s)
+    
+    for i, op in enumerate(opciones):
+        idx = i + 1
+        if idx == seleccion_actual:
+            # Opción seleccionada (Resaltada)
+            txt = f"{C.WHITE}► [{idx}] {op}{C.RESET}"
+            relleno = " " * (ancho - len(op) - 9) # Calculo manual aprox de espacios
+            linea = f"{color}{Box.V}{C.BOLD}{txt}{relleno}{C.RESET}{color}{Box.V}{C.RESET}"
+        else:
+            # Opción normal
+            txt = f"{C.GREY}  [{idx}] {op}{C.RESET}"
+            relleno = " " * (ancho - len(op) - 9)
+            linea = f"{color}{Box.V}{txt}{relleno}{color}{Box.V}{C.RESET}"
+        lineas.append(linea)
+        
+    # Relleno vertical si faltan lineas para igualar altura (opcional)
+    while len(lineas) < 5:
+        lineas.append(f"{color}{Box.V}{' '*(ancho-2)}{Box.V}{C.RESET}")
+
+    lineas.append(f"{color}{Box.BL}{Box.H*(ancho-2)}{Box.BR}{C.RESET}")
+    return lineas
+
+def dibujar_input_dashboard(fase, data):
+    """Renderiza toda la pantalla de inputs basada en el estado actual"""
+    limpiar()
+    print(f"\n{C.CYAN}{C.BOLD}   🧬  SISTEMA DE CONFIGURACIÓN GENÉTICA v3.0  🧬{C.RESET}\n")
+    
+    # --- PANEL SUPERIOR: ENFERMEDAD ---
+    enf_txt = data.get('enf', 'Pendiente...')
+    color_enf = C.GREEN if fase > 1 else C.YELLOW
+    caja_enf = crear_tarjeta_simple("PATOLOGÍA", enf_txt, color_enf, 54)
+    for l in caja_enf: print(f"      {l}")
+    
+    print("") # Separador
+    
+    # --- PANELES CENTRALES: PADRES ---
+    if fase >= 2:
+        # Definir opciones
+        ops_m = ["Sana", "Portadora", "Enferma"]
+        ops_p = ["Sano", "Enfermo"]
+        
+        # Determinar selección visual
+        sel_m = data.get('m_op', 0) if fase > 2 else 0
+        sel_p = data.get('p_op', 0) if fase > 3 else 0
+        
+        # Color activo o gris
+        c_m = C.PURPLE if fase == 2 else (C.GREY if fase < 2 else C.PURPLE)
+        c_p = C.BLUE if fase == 3 else (C.GREY if fase < 3 else C.BLUE)
+        
+        # Generar cajas
+        panel_m = crear_panel_opciones("MADRE (XX)", ops_m, sel_m, c_m)
+        panel_p = crear_panel_opciones("PADRE (XY)", ops_p, sel_p, c_p)
+        
+        # Imprimir lado a lado
+        for lm, lp in zip(panel_m, panel_p):
+            print(f"      {lm}  {lp}")
+
+    print("\n")
+
+# --- 3. LÓGICA DE NODOS (RESULTADO) ---
+# (Reutilizamos la lógica visual de nodos flotantes pero comprimida)
+
+def crear_nodo_res(titulo, gen, estado, color, ancho=14):
+    b_sup = f"{color}{Box.TL}{Box.H*(ancho-2)}{Box.TR}{C.RESET}"
+    b_inf = f"{color}{Box.BL}{Box.H*(ancho-2)}{Box.BR}{C.RESET}"
+    l1 = f"{color}{Box.V}{C.WHITE}{titulo.center(ancho-2)}{C.RESET}{color}{Box.V}{C.RESET}"
+    l2 = f"{color}{Box.V}{C.CYAN}{gen.center(ancho-2)}{C.RESET}{color}{Box.V}{C.RESET}"
+    l3 = f"{color}{Box.V}{estado.center(ancho-2)}{color}{Box.V}{C.RESET}"
+    return [b_sup, l1, l2, l3, b_inf]
+
+def imprimir_arbol_final(padre, madre, hijos):
+    # Renderizado final del árbol
+    limpiar()
+    print(f"\n{C.CYAN}   🧬  RESULTADO DEL ANÁLISIS  🧬{C.RESET}\n")
+    
+    # 1. Padres (Nodos estáticos simples)
+    n_p = crear_nodo_res("PADRE", f"X{padre[0]} {padre[1]}", "---", C.BLUE)
+    n_m = crear_nodo_res("MADRE", f"X{madre[0]} X{madre[1]}", "---", C.PURPLE)
+    
+    gap = " " * 8
+    pad = " " * 12
+    for l_p, l_m in zip(n_p, n_m):
+        print(f"{pad}{l_p}{gap}{l_m}")
+
+    # 2. Conectores (Hardcoded para estética)
+    print(f"{pad}      {C.BLUE}└──────{C.GREY}┬{C.PURPLE}──────┘{C.RESET}")
+    print(f"{pad}           {C.GREY}│{C.RESET}")
+    print(f"{pad}   {C.GREY}┌───────┼───────┬───────┐{C.RESET}")
+
+    # 3. Hijos
+    filas = [[],[],[],[],[]]
+    for h in hijos:
+        # Analisis rápido
+        a1, a2 = h
+        sex = "HIJO" if "Y" in (a1, a2) else "HIJA"
+        col = C.BLUE if sex == "HIJO" else C.PURPLE
+        
+        # Estado (Inferido por mayusculas)
+        if sex == "HIJO":
+            st = f"{C.GREEN}SANO" if a1.isupper() else f"{C.RED}ENF."
+        else:
+            gs = sorted([a1, a2])
+            if gs[0].isupper() and gs[1].isupper(): st=f"{C.GREEN}SANA"
+            elif gs[0].isupper(): st=f"{C.YELLOW}PORT."
+            else: st=f"{C.RED}ENF."
+            
+        gen_txt = f"X{a1}Y" if sex=="HIJO" else f"X{sorted([a1,a2])[0]}X{sorted([a1,a2])[1]}"
+        
+        nodo = crear_nodo_res(sex, gen_txt, st, col, 12)
+        for i in range(5): filas[i].append(nodo[i])
+
+    for f in filas:
+        print(f"   {'  '.join(f)}")
+    print("\n")
+
+
+# --- 4. FLUJO PRINCIPAL (MAIN LOOP) ---
 
 def main():
-    limpiar()
-    imprimir_adn_header()
-
-    # 1. Configuración de Patología
-    print(f"{C.WHITE} PASO 1: IDENTIFICACIÓN DE PATOLOGÍA{C.END}")
-    enf = input(f" {C.CYAN}{Sym.ARROW} Nombre de la enfermedad:{C.END} ").strip().capitalize()
-    if not enf: enf = "Hemofilia"
+    datos = {}
     
+    # FASE 1: Nombre Enfermedad
+    dibujar_input_dashboard(1, datos)
+    # Input flotante simulado
+    print(f"      {C.GREY}Escribe el nombre de la enfermedad:{C.RESET}")
+    enf = input(f"      {C.CYAN}❯ {C.RESET}").strip().capitalize()
+    if not enf: enf = "Hemofilia"
+    datos['enf'] = enf
+    
+    # Preparar alelos
     S = enf[0].upper()
     e = enf[0].lower()
 
-    print(f"    {C.GREY}Alelo Dominante (Sano):{C.END} {C.GREEN}{S}{C.END}")
-    print(f"    {C.GREY}Alelo Recesivo (Enf.): {C.END} {C.RED}{e}{C.END}\n")
+    # FASE 2: Madre
+    dibujar_input_dashboard(2, datos)
+    print(f"      {C.PURPLE}Selecciona genotipo MADRE (1-3):{C.RESET}")
+    try: 
+        m = int(input(f"      {C.PURPLE}❯ {C.RESET}"))
+    except: m = 1
+    datos['m_op'] = m
 
-    # 2. Configuración de Padres
-    print(f"{C.WHITE} PASO 2: MUESTRAS DE LOS PADRES{C.END}")
-    
-    # Madre
-    print(f" {C.PURPLE}{Sym.FEMALE} MADRE:{C.END} [1]Sana [2]Portadora [3]Enferma")
-    try: m_op = int(input(f" {C.CYAN}{Sym.ARROW} Selección:{C.END} "))
-    except: m_op = 1
-    
-    # Padre
-    print(f" {C.BLUE}{Sym.MALE} PADRE:{C.END} [1]Sano [2]Enfermo")
-    try: p_op = int(input(f" {C.CYAN}{Sym.ARROW} Selección:{C.END} "))
-    except: p_op = 1
+    # FASE 3: Padre
+    dibujar_input_dashboard(3, datos)
+    print(f"      {C.BLUE}Selecciona genotipo PADRE (1-2):{C.RESET}")
+    try: 
+        p = int(input(f"      {C.BLUE}❯ {C.RESET}"))
+    except: p = 1
+    datos['p_op'] = p
 
-    # Definición de Genes
-    m_alelos = (S, S) if m_op == 1 else (S, e) if m_op == 2 else (e, e)
-    p_alelos = (S, "Y") if p_op == 1 else (e, "Y")
+    # FASE 4: Procesando...
+    dibujar_input_dashboard(4, datos) # Muestra todo seleccionado
+    print(f"      {C.GREEN}Configuración completada. Calculando...{C.RESET}")
+    time.sleep(1.5)
 
-    # Efecto "Cargando"
-    barra_progreso_medica("SECUENCIANDO ADN")
-    barra_progreso_medica("CALCULANDO PROBABILIDADES")
-    limpiar()
-
-    # --- VISUALIZACIÓN DE RESULTADOS ---
-    
-    # Encabezado Reporte
-    print(f"{C.BLUE}{Sym.TL}{Sym.H*58}{Sym.TR}")
-    print(f"{Sym.V}  REPORTE GENÉTICO: {C.BOLD}{C.WHITE}{enf.upper().center(38)}{C.END}{C.BLUE}   {Sym.V}")
-    print(f"{Sym.BL}{Sym.H*58}{Sym.BR}{C.END}\n")
-
-    # PREPARAR DATOS PARA LA TABLA
-    # Pre-calculamos textos sin color para medir espacios, luego aplicamos color
-    # c1, c2, c3, c4 son los genotipos de los hijos
-    
-    def color_gen(txt):
-        # Colorea las letras dentro del string: S->Verde, e->Rojo
-        res = ""
-        for char in txt:
-            if char == S: res += f"{C.GREEN}{char}{C.END}"
-            elif char == e: res += f"{C.RED}{char}{C.END}"
-            else: res += f"{C.GREY}{char}{C.END}"
-        return res
-
-    raw_c1 = formatear_alelo(m_alelos[0], p_alelos[0]).replace(" ", "")
-    raw_c2 = formatear_alelo(m_alelos[0], p_alelos[1]).replace(" ", "")
-    raw_c3 = formatear_alelo(m_alelos[1], p_alelos[0]).replace(" ", "")
-    raw_c4 = formatear_alelo(m_alelos[1], p_alelos[1]).replace(" ", "")
-
-    col_c1 = color_gen(raw_c1)
-    col_c2 = color_gen(raw_c2)
-    col_c3 = color_gen(raw_c3)
-    col_c4 = color_gen(raw_c4)
-
-    # --- LAYOUT HORIZONTAL (TABLA + LISTA) ---
-    
-    # Construcción de la Tabla de Punnett (Ancho fijo visual)
-    # Usamos f-strings con padding manual
-    
-    esp = " " * 3 # Espaciado celda
-    
-    # Bloque Tabla (Izquierda)
-    b_tabla = [
-        f"        {C.BLUE}{Sym.MALE} PADRE{C.END}",
-        f"       X{color_gen(p_alelos[0])}      {color_gen(p_alelos[1])}",
-        f"     {C.GREY}┌───────┬───────┐{C.END}",
-        f"  X{color_gen(m_alelos[0])} {C.GREY}│{C.END} {col_c1}  {C.GREY}│{C.END} {col_c2}  {C.GREY}│{C.END}",
-        f"{C.PURPLE}{Sym.FEMALE}{C.END}    {C.GREY}├───────┼───────┤{C.END}",
-        f"  X{color_gen(m_alelos[1])} {C.GREY}│{C.END} {col_c3}  {C.GREY}│{C.END} {col_c4}  {C.GREY}│{C.END}",
-        f"     {C.GREY}└───────┴───────┘{C.END}"
+    # CÁLCULO
+    m_alelos = (S,S) if m==1 else (S,e) if m==2 else (e,e)
+    p_alelos = (S,"Y") if p==1 else (e,"Y")
+    hijos = [
+        (m_alelos[0], p_alelos[0]), (m_alelos[0], p_alelos[1]),
+        (m_alelos[1], p_alelos[0]), (m_alelos[1], p_alelos[1])
     ]
 
-    # Bloque Resultados (Derecha)
-    b_res = [f"{C.WHITE}{C.BOLD}DIAGNÓSTICO DESCENDENCIA:{C.END}", ""]
-    
-    hijos = [(m_alelos[0], p_alelos[0]), (m_alelos[0], p_alelos[1]),
-             (m_alelos[1], p_alelos[0]), (m_alelos[1], p_alelos[1])]
-    
-    stats = {"SANO": 0, "PORTADORA": 0, "ENFERMO": 0}
-
-    for i, h in enumerate(hijos):
-        sexo_icon = f"{C.BLUE}{Sym.MALE}{C.END}" if "Y" in h else f"{C.PURPLE}{Sym.FEMALE}{C.END}"
-        gen_str = formatear_alelo(h[0], h[1])
-        diag_txt, diag_col = obtener_diagnostico(h[0], h[1], S)
-        
-        # Guardar estadística
-        key = diag_txt if "PORTADORA" not in diag_txt and "SANA" not in diag_txt else diag_txt.replace("A", "O")
-        # Unificamos claves para el conteo simple
-        if "SANA" in diag_txt or "SANO" in diag_txt: stats["SANO"] += 1
-        elif "PORTADORA" in diag_txt: stats["PORTADORA"] += 1
-        else: stats["ENFERMO"] += 1
-        
-        # Formatear línea
-        linea = f"{i+1}. {sexo_icon} {gen_str:<5} {C.GREY}»{C.END} {diag_col}{diag_txt:<9}{C.END}"
-        b_res.append(linea)
-
-    # IMPRESIÓN LADO A LADO
-    print("")
-    alto = max(len(b_tabla), len(b_res))
-    for i in range(alto):
-        izq = b_tabla[i] if i < len(b_tabla) else " " * 25
-        der = b_res[i] if i < len(b_res) else ""
-        # 30 espacios fijos para la tabla izquierda
-        print(f" {izq:<45}   {der}")
-    print("")
-
-    # --- BARRA DE ESTADÍSTICAS FINAL ---
-    total = 4
-    pct_sano = int((stats["SANO"]/total)*20)
-    pct_port = int((stats["PORTADORA"]/total)*20)
-    pct_enf = int((stats["ENFERMO"]/total)*20)
-
-    # Dibujo de barra visual
-    barra = f"{C.GREEN}{'█'*pct_sano}{C.YELLOW}{'▒'*pct_port}{C.RED}{'░'*pct_enf}{C.END}"
-    fondo_barra = f"{C.GREY}{'·' * (20 - (pct_sano+pct_port+pct_enf))}{C.END}"
-    
-    caja_texto(f"PROBABILIDAD GLOBAL DE RIESGO", C.CYAN, 60)
-    print(f"  Visual: [{barra}{fondo_barra}]")
-    print(f"  Datos:  {C.GREEN}{Sym.BLOCK} Sanos: {stats['SANO']}{C.END}   "
-          f"{C.YELLOW}{Sym.SHADE} Portadores: {stats['PORTADORA']}{C.END}   "
-          f"{C.RED}░ Enfermos: {stats['ENFERMO']}{C.END}\n")
-    
-    print(f"{C.BLUE}{Sym.H*60}{C.END}")
+    # MOSTRAR RESULTADOS
+    imprimir_arbol_final(p_alelos, m_alelos, hijos)
 
 if __name__ == "__main__":
     while True:
         main()
-        if input(f"\n{C.GREY} ¿Analizar nueva muestra? (Enter=Sí / n=No): {C.END}").lower() == 'n':
-            print(" Cerrando sistema médico...")
-            break
+        if input(f"{C.GREY}Presiona Enter para reiniciar o 'n' para salir: {C.RESET}") == 'n': break
